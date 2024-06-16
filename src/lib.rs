@@ -2,6 +2,13 @@ pub mod transducer {
     use std::{fs::File, io::{Read, Write}};
     use rand::{distributions::{Distribution, Uniform}, thread_rng};
 
+    pub enum Error {
+        LackBytes,
+        EmptyCypher,
+        OpenFail,
+        WriteFail,
+        CreateFail,
+    }
     pub struct Transducer {
         /* First dimension represents current state, Second represents current input
         The tuple has the next state as first entry and the new byte as the second entry */
@@ -70,7 +77,7 @@ pub mod transducer {
             bytes
         }
         // Takes a byte vector and constructs the transducer from it
-        fn from_bytes(b: &Vec<u8>) -> Result<Self, ()> {
+        fn from_bytes(b: &Vec<u8>) -> Result<Self, Error> {
             let mut b_iter = b.iter();
             // Technically we don't need to do it this way and can construct the 2-D array as we get the appropiate values
             let mut states = vec![vec![(0, 0); 256]; 256];
@@ -78,18 +85,18 @@ pub mod transducer {
             // Get the start. Any correct format of the transducer will have enough iterated bytes
             let start = match b_iter.next() {
                 Some(s) => *s,
-                None => return Err(()),
+                None => return Err(Error::LackBytes),
             };
             for i in 0..256 {
                 for j in 0..256 {
                     // Get bytes
                     let n_state = match b_iter.next() {
                         Some(n) => *n,
-                        None => return Err(()),
+                        None => return Err(Error::LackBytes),
                     };
                     let output = match b_iter.next() {
                         Some(o) => *o,
-                        None => return Err(()),
+                        None => return Err(Error::LackBytes),
                     };
                     // Store the states and the inverse
                     states[i][j] = (n_state, output);
@@ -115,7 +122,7 @@ pub mod transducer {
             code
         }
         // Decrypt a byte vector using this transducer
-        fn decrypt(&self, message: &Vec<u8>) -> Result<Vec<u8>, ()> {
+        fn decrypt(&self, message: &Vec<u8>) -> Result<Vec<u8>, Error> {
             // We don't need the final state byte so we can reduce size by 1
             let mut source = Vec::with_capacity(message.len() - 1);
             // Reverse so we go back to front
@@ -123,7 +130,7 @@ pub mod transducer {
             // Even an empty source message will have a byte in the cypher so we shouldn't expect this
             let mut state = match m_iter.next() {
                 Some(s) => *s,
-                None => return Err(()),
+                None => return Err(Error::EmptyCypher),
             };
             for b in m_iter {
                 // This is why the inverse exists. Otherwise we would have to search for the right spot
@@ -135,10 +142,10 @@ pub mod transducer {
             Ok(source)
         }
         // Encrypt a file from path with this transducer
-        pub fn encrypt_file(&self, path: &str) -> Result<(), ()> {
+        pub fn encrypt_file(&self, path: &str) -> Result<(), Error> {
             let file = match File::open(path) {
                 Ok(f) => f,
-                Err(_) => return Err(()),
+                Err(_) => return Err(Error::OpenFail),
             };
             // There is probably a better way to do this, but it works
             let bytes = file.bytes().map(|a| a.unwrap()).collect();
@@ -146,54 +153,54 @@ pub mod transducer {
             let cypher = self.encrypt(&bytes);
             let mut file = match File::create(path) {
                 Ok(f) => f,
-                Err(_) => return Err(()),
+                Err(_) => return Err(Error::CreateFail),
             };
             // Write over original text
             match file.write_all(&cypher) {
-                Err(_) =>  Err(()),
+                Err(_) =>  Err(Error::WriteFail),
                 _ => Ok(())
             }
         }
         // Decrypt a file from path with this transducer
-        pub fn decrypt_file(&self, path: &str) -> Result<(), ()> {
+        pub fn decrypt_file(&self, path: &str) -> Result<(), Error> {
             let file = match File::open(path) {
                 Ok(f) => f,
-                Err(_) => return Err(()),
+                Err(_) => return Err(Error::OpenFail),
             };
             // There is probably a better way to do this, but it works
             let bytes = file.bytes().map(|a| a.unwrap()).collect();
             // Get source
             let source = match self.decrypt(&bytes) {
                 Ok(s) => s,
-                Err(_) => return Err(()),
+                Err(e) => return Err(e),
             };
             let mut file = match File::create(path) {
                 Ok(f) => f,
-                Err(_) => return Err(()),
+                Err(_) => return Err(Error::CreateFail),
             };
             // Write source
             match file.write_all(&source) {
                 Ok(_) => Ok(()),
-                Err(_) => Err(()),
+                Err(_) => Err(Error::WriteFail),
             }
         }
         // Save the transducer to a file at this path
-        pub fn save_transducer(&self, path: &str) -> Result<(), ()> {
+        pub fn save_transducer(&self, path: &str) -> Result<(), Error> {
             let mut file = match File::create(path) {
                 Ok(f) => f,
-                Err(_) => return Err(()),
+                Err(_) => return Err(Error::CreateFail),
             };
             // Get byte form and write it
             match file.write_all(&self.to_bytes()) {
                 Ok(_) => Ok(()),
-                Err(_) => Err(()),
+                Err(_) => Err(Error::WriteFail),
             }
         }
         // Load the transducer from a file at this path
-        pub fn load_transducer(path: &str) -> Result<Self, ()> {
+        pub fn load_transducer(path: &str) -> Result<Self, Error> {
             let file = match File::open(path) {
                 Ok(f) => f,
-                Err(_) => return Err(()),
+                Err(_) => return Err(Error::OpenFail),
             };
             // There is probably a better way to do this, but it works
             let bytes = &file.bytes().map(|a| a.unwrap()).collect();
