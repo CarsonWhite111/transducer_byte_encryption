@@ -76,12 +76,21 @@ pub mod transducer {
             let mut states = vec![vec![(0, 0); 256]; 256];
             let mut inverses = vec![vec![(0, 0); 256]; 256];
             // Get the start. Any correct format of the transducer will have enough iterated bytes
-            let start = *b_iter.next().unwrap();
+            let start = match b_iter.next() {
+                Some(s) => *s,
+                None => return Err(()),
+            };
             for i in 0..256 {
                 for j in 0..256 {
                     // Get bytes
-                    let n_state = *b_iter.next().unwrap();
-                    let output = *b_iter.next().unwrap();
+                    let n_state = match b_iter.next() {
+                        Some(n) => *n,
+                        None => return Err(()),
+                    };
+                    let output = match b_iter.next() {
+                        Some(o) => *o,
+                        None => return Err(()),
+                    };
                     // Store the states and the inverse
                     states[i][j] = (n_state, output);
                     inverses[n_state as usize][output as usize] = (i as u8, j as u8);
@@ -112,7 +121,10 @@ pub mod transducer {
             // Reverse so we go back to front
             let mut m_iter = message.iter().rev();
             // Even an empty source message will have a byte in the cypher so we shouldn't expect this
-            let mut state = *m_iter.next().unwrap();
+            let mut state = match m_iter.next() {
+                Some(s) => *s,
+                None => return Err(()),
+            };
             for b in m_iter {
                 // This is why the inverse exists. Otherwise we would have to search for the right spot
                 let (n_state, original) = self.inverse[state as usize][*b as usize];
@@ -124,49 +136,69 @@ pub mod transducer {
         }
         // Encrypt a file from path with this transducer
         pub fn encrypt_file(&self, path: &str) -> Result<(), ()> {
-            let file = File::open(path).unwrap();
+            let file = match File::open(path) {
+                Ok(f) => f,
+                Err(_) => return Err(()),
+            };
             // There is probably a better way to do this, but it works
             let bytes = file.bytes().map(|a| a.unwrap()).collect();
             // Get cypher
             let cypher = self.encrypt(&bytes);
-            let mut file = File::create(path).unwrap();
+            let mut file = match File::create(path) {
+                Ok(f) => f,
+                Err(_) => return Err(()),
+            };
             // Write over original text
-            file.write_all(&cypher).unwrap();
-            Ok(())
+            match file.write_all(&cypher) {
+                Err(_) =>  Err(()),
+                _ => Ok(())
+            }
         }
         // Decrypt a file from path with this transducer
         pub fn decrypt_file(&self, path: &str) -> Result<(), ()> {
-            let file = File::open(path).unwrap();
+            let file = match File::open(path) {
+                Ok(f) => f,
+                Err(_) => return Err(()),
+            };
             // There is probably a better way to do this, but it works
             let bytes = file.bytes().map(|a| a.unwrap()).collect();
             // Get source
-            let source = self.decrypt(&bytes);
-            let mut file = File::create(path).unwrap();
-            match source {
-                Ok(source) => {
-                    // Write source
-                    file.write_all(&source).unwrap();
-                    Ok(())
-                }
-                Err(_) => {
-                    Err(())
-                }
+            let source = match self.decrypt(&bytes) {
+                Ok(s) => s,
+                Err(_) => return Err(()),
+            };
+            let mut file = match File::create(path) {
+                Ok(f) => f,
+                Err(_) => return Err(()),
+            };
+            // Write source
+            match file.write_all(&source) {
+                Ok(_) => Ok(()),
+                Err(_) => Err(()),
             }
         }
         // Save the transducer to a file at this path
         pub fn save_transducer(&self, path: &str) -> Result<(), ()> {
-            let mut file = File::create(path).unwrap();
+            let mut file = match File::create(path) {
+                Ok(f) => f,
+                Err(_) => return Err(()),
+            };
             // Get byte form and write it
-            file.write_all(&self.to_bytes()).unwrap();
-            Ok(())
+            match file.write_all(&self.to_bytes()) {
+                Ok(_) => Ok(()),
+                Err(_) => Err(()),
+            }
         }
         // Load the transducer from a file at this path
         pub fn load_transducer(path: &str) -> Result<Self, ()> {
-            let file = File::open(path).unwrap();
+            let file = match File::open(path) {
+                Ok(f) => f,
+                Err(_) => return Err(()),
+            };
             // There is probably a better way to do this, but it works
             let bytes = &file.bytes().map(|a| a.unwrap()).collect();
             // Construct and return
-            Ok(Self::from_bytes(bytes).unwrap())
+            Self::from_bytes(bytes) 
         }
     }
 }
