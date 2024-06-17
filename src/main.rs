@@ -1,62 +1,85 @@
-use std::{arch::x86_64::_mm_testz_pd, env::args};
-
+use std::env::args;
 use transducer_byte_encryption::transducer::Transducer;
 
 fn main() {
+    // Get environment
     let args: Vec<String> = args().collect();
+    // Encrypt/Decrypt path
     if args.len() == 4 {
+        // Get Flag
         match args[1].chars().nth(1) {
             Some(c) => match c {
+                // Decrypt
                 'd' => {
+                    // Load transducer
                     let t = match Transducer::load_transducer(&args[2]) {
                         Ok(t) =>  t,
-                        Err(_) => todo!(),
+                        Err(e) => return println!("{}", e.to_string()),
                     };
+                    // Decrypt file
                     match t.decrypt_file(&args[3]) {
-                        Ok(_) => todo!(),
-                        Err(_) => todo!(),
+                        Ok(_) => {},
+                        Err(e) => return println!("{}", e.to_string()),
                     }
                 },
+                // Encrypt
                 'e' => {
+                    // Load transducer
                     let t = match Transducer::load_transducer(&args[2]) {
                         Ok(t) => t,
-                        Err(_) => todo!(),
+                        Err(e) => return println!("{}", e.to_string()),
                     };
+                    // Encrypt file
                     match t.encrypt_file(&args[3]) {
-                        Ok(_) => todo!(),
-                        Err(_) => todo!(),
+                        Ok(_) => {},
+                        Err(e) => return println!("{}", e.to_string()),
                     }
                 },
-                _ => todo!(),
+                // Incorrect flag
+                _ => println!("Invalid arguments\nUse the -h flag to see commands"),
             },
-            None => todo!(),
+            // Missing flag
+            None => println!("Invalid arguments\nUse the -h flag to see commands"),
         }
     }
+    // Generate path
     else if args.len() == 3 {
         match args[1].chars().nth(1) {
             Some(c) => match c {
+                // Generate transducer
                 'g' => {
+                    // Construct random transducer
                     let t = Transducer::spawn();
+                    // Save random transducer
                     match t.save_transducer(&args[2]) {
-                        Ok(_) => todo!(),
-                        Err(_) => todo!(),
+                        Ok(_) => {},
+                        Err(e) => println!("{}", e.to_string()),
                     };
                 },
-                _ => todo!(),
+                // Incorrect flag
+                _ => println!("Invalid arguments\nUse the -h flag to see commands"),
             },
-            None => todo!(),
+            // Missing flag
+            None => println!("Invalid arguments\nUse the -h flag to see commands"),
         }
     }
+    // Help path
     else if args.len() == 2 {
         match args[1].chars().nth(1) {
             Some(c) => match c {
-                'h' => todo!(),
-                _ => todo!(),
+                // Help menu
+                'h' => {
+                    println!("\n-d <key path> <file path> Decrypts the file at path with key\n-e <key path> <file path> Encrypts the file at path with key\n-g <key path> Generates a key and stores it at path\n-h This menu\n",)
+                },
+                // Incorrect flag
+                _ => println!("Invalid arguments\nUse the -h flag to see commands"),
             },
-            None => todo!(),
+            // Missing flag
+            None => println!("Invalid arguments\nUse the -h flag to see commands"),
         }
     }
+    // Completely incorrect input
     else {
-        println!("Inalid argmunts\nUse the -h flag to see commands");
+        println!("Invalid arguments\nUse the -h flag to see commands");
     }
 }

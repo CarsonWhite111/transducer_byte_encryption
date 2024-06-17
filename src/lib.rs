@@ -3,11 +3,22 @@ pub mod transducer {
     use rand::{distributions::{Distribution, Uniform}, thread_rng};
 
     pub enum Error {
-        LackBytes,
-        EmptyCypher,
-        OpenFail,
-        WriteFail,
-        CreateFail,
+        LackBytes, // Not enough bytes to construct transducer
+        EmptyCypher, // Empty cypher text
+        OpenFail, // Failure to open file
+        WriteFail, // Failure to write to file
+        CreateFail, // Failure to create file
+    }
+    impl Error {
+        pub fn to_string(&self) -> String {
+            match self {
+                Error::LackBytes => "Not enoguh bytes to construct transducer".to_string(),
+                Error::EmptyCypher => "Empty cypher text so no starting state exists".to_string(),
+                Error::OpenFail => "Failure to open file at this path".to_string(),
+                Error::WriteFail => "Failure writing to file at this path".to_string(),
+                Error::CreateFail => "Failure to create file at this path".to_string(),
+            }
+        }
     }
     pub struct Transducer {
         /* First dimension represents current state, Second represents current input
